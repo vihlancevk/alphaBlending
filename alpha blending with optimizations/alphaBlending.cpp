@@ -1,6 +1,7 @@
 #include <iostream>
-#include <stdio.h>
+#include <cstring>
 #include <SFML/Graphics.hpp>
+#include <immintrin.h>
 
 const int SCREEN_WIDTH  = 800;
 const int SCREEN_HEIGHT = 600;
@@ -8,46 +9,73 @@ const int SCREEN_HEIGHT = 600;
 const char* BACK_GROUND_FILE = "../images/Table.bmp";
 const char* FORE_GROUND_FILE = "../images/Cat.bmp";
 
-const int X_FORE_GROUND_IMAGE = 500;
-const int Y_FORE_GROUND_IMAGE = 225;
-
-void AlphaBlending( int X, int Y, sf::Image &backGroundImage, sf::Image foreGroundImage )
+sf::Uint8 * AlphaBlending( sf::Image &backGroundImage, sf::Image &foreGroundImage )
 {
-    int redBack   = 0;
-    int greenBack = 0;
-    int blueBack  = 0;
-    int alphaBack = 0;
+    const char I = 255u,
+               Z = 0x80u;
+           
+    const __m128i   _0 =                    _mm_set_epi8 ( 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 );
+    const __m128i _255 = _mm_cvtepu8_epi16( _mm_set_epi8 ( I,I,I,I, I,I,I,I, I,I,I,I, I,I,I,I ) );
 
-    int widthFront  = foreGroundImage.getSize().x;
-    int heightFront = foreGroundImage.getSize().y;
+    int widthBack  = backGroundImage.getSize().x;
+    int heightBack = backGroundImage.getSize().y;
 
-    for ( int y = 0; y < heightFront; y++ )
+    int widthFore  = foreGroundImage.getSize().x;
+    int heightFore = foreGroundImage.getSize().y;
+
+    sf::Uint8 const *pixelsBack = new sf::Uint8[widthBack*heightBack*4];
+    pixelsBack = backGroundImage.getPixelsPtr();
+
+    sf::Uint8 *pixelsBackUpdate = new sf::Uint8[widthBack*heightBack*4];
+    std::memcpy( pixelsBackUpdate, pixelsBack, widthBack*heightBack*4 );
+    
+    sf::Uint8 const *pixelsFore = new sf::Uint8[widthFore*heightFore*4];
+    pixelsFore = foreGroundImage.getPixelsPtr();
+
+    for ( int y = 0; y < heightFore; y ++ )
     {
-        for ( int x = 0; x < widthFront; x += 4 )
+        for ( int x = 0 ; x < widthFore; x += 4 )
         {
-            sf::Color colorBack[4]  = { backGroundImage.getPixel( X + x + 0, Y + y + 0 ),
-                                        backGroundImage.getPixel( X + x + 1, Y + y + 1 ),
-                                        backGroundImage.getPixel( X + x + 2, Y + y + 2 ),
-                                        backGroundImage.getPixel( X + x + 3, Y + y + 3 ) };
-            sf::Color colorFront[4] = { foreGroundImage.getPixel( x + 0, y ),
-                                        foreGroundImage.getPixel( x + 1, y ),
-                                        foreGroundImage.getPixel( x + 2, y ),
-                                        foreGroundImage.getPixel( x + 3, y ), };
-            for ( int i = 0; i < 4; i++ )
-            {
-                if ( colorFront[i].a >= 0 )
-                {
-                    redBack   = ( colorFront[i].r * colorFront[i].a + colorBack[i].r * ( 255 - colorFront[i].a ) ) >> 8;
-                    greenBack = ( colorFront[i].g * colorFront[i].a + colorBack[i].g * ( 255 - colorFront[i].a ) ) >> 8;
-                    blueBack  = ( colorFront[i].b * colorFront[i].a + colorBack[i].b * ( 255 - colorFront[i].a ) ) >> 8;
-                    sf::Color color ( redBack, greenBack, blueBack );
-                    backGroundImage.setPixel( X + x + i, Y + y + i, color );
-                }
-            }
+
+
+            __m128i bk = _mm_lddqu_si128( (__m128i*)&(pixelsBack[y * widthBack * 4 + x * 4]) );
+            __m128i fr = _mm_lddqu_si128( (__m128i*)&(pixelsFore[y * widthFore * 4 + x * 4]) );
+
+            __m128i BK = (__m128i)_mm_movehl_ps( (__m128)_0, (__m128)bk );
+            __m128i FR = (__m128i)_mm_movehl_ps( (__m128)_0, (__m128)fr );
+
+            bk = _mm_cvtepu8_epi16( bk );
+            BK = _mm_cvtepu8_epi16( BK );
+
+            fr = _mm_cvtepu8_epi16( fr );
+            FR = _mm_cvtepu8_epi16( FR );
+
+            static const __m128i moveA = _mm_set_epi8( Z, 14, Z, 14, Z, 14, Z, 14,
+                                                       Z, 6 , Z, 6 , Z, 6 , Z, 6  );
+            __m128i a = _mm_shuffle_epi8( fr, moveA );
+            __m128i A = _mm_shuffle_epi8( FR, moveA );
+
+            bk = _mm_mullo_epi16( bk, _mm_sub_epi8( _255, a ) );
+            BK = _mm_mullo_epi16( BK, _mm_sub_epi8( _255, A ) );
+
+            fr = _mm_mullo_epi16( fr, a );
+            FR = _mm_mullo_epi16( FR, A );
+
+            __m128i sum = _mm_add_epi16( fr, bk );
+            __m128i SUM = _mm_add_epi16( FR, BK );
+
+            static const __m128i moveSum = _mm_set_epi8( Z , Z , Z , Z, Z, Z, Z, Z, 
+                                                         15, 13, 11, 9, 7, 5, 3, 1 );
+            sum = _mm_shuffle_epi8( sum, moveSum );
+            SUM = _mm_shuffle_epi8( SUM, moveSum );
+
+            __m128i color = (__m128i)_mm_movelh_ps( (__m128)sum, (__m128)SUM );
+
+           _mm_storeu_si128( (__m128i*)(__m128i*)&(pixelsBackUpdate[y * widthBack * 4 + x * 4]), color );
        }
     }
 
-    return;
+    return pixelsBackUpdate;
 }
 
 int main()
@@ -61,10 +89,10 @@ int main()
     sf::Image foreGroundImage;
     foreGroundImage.loadFromFile( FORE_GROUND_FILE );
 
-    AlphaBlending( Y_FORE_GROUND_IMAGE, Y_FORE_GROUND_IMAGE, backGroundImage, foreGroundImage );
-
-     sf::Texture backGroundTexture;
+    sf::Texture backGroundTexture;
 	backGroundTexture.loadFromImage( backGroundImage );
+    sf::Uint8 *pixelsBackUpdate = AlphaBlending( backGroundImage, foreGroundImage );
+    backGroundTexture.update( pixelsBackUpdate );
  
 	sf::Sprite backGroundSprite;
 	backGroundSprite.setTexture( backGroundTexture );
@@ -85,4 +113,3 @@ int main()
 
     return 0;
 }
- 
