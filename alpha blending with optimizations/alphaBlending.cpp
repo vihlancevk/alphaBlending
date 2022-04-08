@@ -39,7 +39,7 @@ sf::Uint8 * AlphaBlending( sf::Image backGroundImage, sf::Image foreGroundImage,
         {
             for ( int x = 0 ; x < widthFore; x += 4 )
             {
-                int positionPixelsBack = (y + yForeGroundImage) * widthBack * 4 + (x + xForeGroundImage) * 4;
+                int positionPixelsBack = ( y + yForeGroundImage ) * widthBack * 4 + ( x + xForeGroundImage ) * 4;
                 int positionPixelsFore = y * widthFore * 4 + x * 4;
 
                 __m128i bk = _mm_lddqu_si128( (__m128i*)&(pixelsBack[positionPixelsBack]) );
@@ -55,7 +55,7 @@ sf::Uint8 * AlphaBlending( sf::Image backGroundImage, sf::Image foreGroundImage,
                 FR = _mm_cvtepu8_epi16( FR );
 
                 static const __m128i moveA = _mm_set_epi8( Z, 14, Z, 14, Z, 14, Z, 14,
-                                                       Z, 6 , Z, 6 , Z, 6 , Z, 6  );
+                                                           Z, 6 , Z, 6 , Z, 6 , Z, 6  );
                 __m128i a = _mm_shuffle_epi8( fr, moveA );
                 __m128i A = _mm_shuffle_epi8( FR, moveA );
 
@@ -69,7 +69,7 @@ sf::Uint8 * AlphaBlending( sf::Image backGroundImage, sf::Image foreGroundImage,
                 __m128i SUM = _mm_add_epi16( FR, BK );
 
                 static const __m128i moveSum = _mm_set_epi8( Z , Z , Z , Z, Z, Z, Z, Z, 
-                                                         15, 13, 11, 9, 7, 5, 3, 1 );
+                                                             15, 13, 11, 9, 7, 5, 3, 1 );
                 sum = _mm_shuffle_epi8( sum, moveSum );
                 SUM = _mm_shuffle_epi8( SUM, moveSum );
 
@@ -112,18 +112,19 @@ int main()
                 window.close();
         }
 
-        const int xForeGroundImage = 10;
-        const int yForeGroundImage = 10;
+        const int xForeGroundImage = 200;
+        const int yForeGroundImage = 200;
         sf::Uint8 *pixelsBackUpdate = AlphaBlending( backGroundImage, foreGroundImage, xForeGroundImage, yForeGroundImage );
         backGroundTexture.update( pixelsBackUpdate );
 
         window.clear();
         window.draw( backGroundSprite );
         window.display();
+
         auto end     = std::chrono::steady_clock::now();
+
         auto elapsed = std::chrono::duration_cast< std::chrono::milliseconds >( end - start );
-        
-        int fps   = 1000 / (int)(elapsed.count());
+        int fps = 1000 / (int)(elapsed.count());
         window.setTitle( "alpha blending with optimizations ( fps - " + std::to_string( fps ) + " )" );
     }
 
