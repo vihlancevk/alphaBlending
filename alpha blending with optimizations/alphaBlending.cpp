@@ -1,3 +1,14 @@
+// 1) определение размера экрана через разер картинки ( динамически );
+// 2) устройство immintrin.h ( define для разных компов );
+// 3) 4 - занести в константу ( RGBA ); bytesPerPixel
+// 4) constexpr ( умножение на 4 );
+// 5) RTTL, reinterpret_cast<>();
+// 6) 1000 - create const
+// 7) comment git, прочитать статью на Хабре про хорошие коммиты;
+// 8) readme!!!;
+// 9) git submodule;
+// 10) make upgrade.
+
 #include <iostream>
 #include <cstring>
 #include <chrono>
@@ -45,7 +56,7 @@ sf::Uint8 * AlphaBlending( sf::Image backGroundImage, sf::Image foreGroundImage,
                 __m128i bk = _mm_lddqu_si128( (__m128i*)&(pixelsBack[positionPixelsBack]) );
                 __m128i fr = _mm_lddqu_si128( (__m128i*)&(pixelsFore[positionPixelsFore]) );
 
-               __m128i BK = (__m128i)_mm_movehl_ps( (__m128)_0, (__m128)bk );
+               __m128i BK  = (__m128i)_mm_movehl_ps( (__m128)_0, (__m128)bk );
                 __m128i FR = (__m128i)_mm_movehl_ps( (__m128)_0, (__m128)fr );
 
                 bk = _mm_cvtepu8_epi16( bk );
@@ -75,7 +86,7 @@ sf::Uint8 * AlphaBlending( sf::Image backGroundImage, sf::Image foreGroundImage,
 
                 __m128i color = (__m128i)_mm_movelh_ps( (__m128)sum, (__m128)SUM );
 
-                _mm_storeu_si128( (__m128i*)(__m128i*)&(pixelsBackUpdate[positionPixelsBack]), color );
+                _mm_storeu_si128( (__m128i*)&(pixelsBackUpdate[positionPixelsBack]), color );
             }
         }
     }
@@ -121,10 +132,10 @@ int main()
         window.draw( backGroundSprite );
         window.display();
 
-        auto end     = std::chrono::steady_clock::now();
+        auto end = std::chrono::steady_clock::now();
 
         auto elapsed = std::chrono::duration_cast< std::chrono::milliseconds >( end - start );
-        int fps = 1000 / (int)(elapsed.count());
+        int fps = 1000 / (int)( elapsed.count() );
         window.setTitle( "alpha blending with optimizations ( fps - " + std::to_string( fps ) + " )" );
     }
 
